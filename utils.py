@@ -1,21 +1,15 @@
-import re
+
 import os
 import openai
 import logging
-import io
-import csv
 from openai import OpenAI
 from dotenv import load_dotenv
 import os
 from pinecone import Pinecone, ServerlessSpec
-import mysql.connector
-import boto3
-from datetime import datetime
-from boto3.dynamodb.conditions import Key
+
 # === Logging Setup ===
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
-from twilio.rest import Client
 from langchain_openai import ChatOpenAI
 from langchain.prompts import ChatPromptTemplate
 load_dotenv()
@@ -23,27 +17,11 @@ load_dotenv()
 try:
     openai.api_key = os.getenv('OPENAI_API_KEY')
     tavily_api_key = os.getenv('TAVILY_API_KEY')
-    KENDRA_INDEX_ID = os.getenv('KENDRA_INDEX_ID')
-    AWS_REGION = os.getenv('AWS_REGION')
-    ROLE_ARN = os.getenv('ROLE_ARN')
-    aws_access_key_id = os.getenv('AWS_ACCESS_KEY_ID')
-    aws_secret_access_key = os.getenv('AWS_SECRET_ACCESS_KEY')
-    DYNAMODB_TABLE_NAME = "UserConversations"
-    AWS_ACCESS_KEY_ID = os.getenv("AWS_ACCESS_KEY_ID", "YourAccessKey")
-    AWS_SECRET_ACCESS_KEY = os.getenv("AWS_SECRET_ACCESS_KEY", "YourSecretKey")
     host=os.getenv('HOST')
-    database=os.getenv('DATABASE')
-    user=os.getenv('USER')
-    password=os.getenv('PASSWORD')
     PINECONE_API_KEY = os.environ.get("PINECONE_API_KEY")
     PINECONE_ENVIRONMENT = os.environ.get("PINECONE_ENVIRONMENT")
-    INDEX_NAME = "finalpropertylisting5"
+    INDEX_NAME = "finalpropertylisting7"
     pinecone_client = Pinecone(api_key="pcsk_CKCnj_5U5uC4tiS3fna7EDVAp6dCKqJ9sUeayeMyK4c12QyU54uwyq1GBFmX2oT5FFoEb")
-    TWILIO_ACCOUNT_SID = os.getenv("TWILIO_ACCOUNT_SID")
-    TWILIO_AUTH_TOKEN = os.getenv("TWILIO_AUTH_TOKEN")
-    VERIFY_SERVICE_SID = os.getenv("VERIFY_SERVICE_SID")
-    S3_BUCKET_NAME = os.getenv('S3_BUCKET_NAME', 'chatbot-conversations-righthome')
-    s3_client = boto3.client('s3', region_name='us-east-2')
     if INDEX_NAME not in pinecone_client.list_indexes().names():
         pinecone_client.create_index(
             name=INDEX_NAME,
@@ -56,18 +34,6 @@ try:
         )
     index = pinecone_client.Index(INDEX_NAME)
     client=OpenAI()
-    dynamodb_client = boto3.resource(
-    'dynamodb',
-    region_name='ap-south-1',
-    aws_access_key_id=AWS_ACCESS_KEY_ID,
-    aws_secret_access_key=AWS_SECRET_ACCESS_KEY
-    )
-    try:
-        dynamodb_table = dynamodb_client.Table(DYNAMODB_TABLE_NAME)
-        print(f"Connected to DynamoDB table: {DYNAMODB_TABLE_NAME}")
-    except Exception as e:
-        print(f"Error connecting to DynamoDB: {e}")
-        exit()
 except Exception as e:
     logger.error("Error initializing APIs or MongoDB: %s", e)
     exit(1)
@@ -88,76 +54,6 @@ def create_connection():
         logger.error("Database connection error: %s", e)
         raise
 
-# def check_sms_verification(phone_number, code):
-#     try:
-#         client = Client("AC2d2d983c97d5413b5aade0a685d37192", "59e028bae9032c86f1ad9fddad133245 ")
-#         verification_check = client.verify.services("VAd690c00de71c8238570b8841bfef41b8").verification_checks.create(
-#             to=phone_number,
-#             code=code
-#         )
-#         print(f"Verification check status: {verification_check.status}")
-#         return verification_check.status == "approved"
-#     except Exception as e:
-#         print(f"Error verifying code: {e}")
-#         return False
-# def send_sms_verification(phone_number):
-#     try:
-#         client = Client(TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN)
-#         verification = client.verify.services(VERIFY_SERVICE_SID).verifications.create(
-#             to=phone_number,
-#             channel="sms"
-#         )
-#         print(f"Verification SMS sent to {phone_number}. Status: {verification.status}")
-#         return verification.status
-#     except Exception as e:
-#         print(f"Error sending SMS: {e}")
-#         return None
-
-def save_conversation_to_dynamodb(user_id, user_query, assistant_response):
-    """
-    Save the conversation to DynamoDB with a timestamp.
-    """
-    try:
-        dynamodb_table.put_item(
-            Item={
-                "UserID": user_id,
-                "Timestamp": datetime.utcnow().isoformat(),
-                "UserQuery": user_query,
-                "AssistantResponse": assistant_response
-            }
-        )
-        print("Conversation saved successfully!")
-    except Exception as e:
-        print(f"Error saving to DynamoDB: {e}")
-
-
-
-def retrieve_conversation_from_dynamodb(user_id):
-    """
-    Retrieve conversation history for a specific user ID from DynamoDB.
-    """
-    try:
-        # Query the DynamoDB table to get all conversations for the given user ID
-        response = dynamodb_table.query(
-            KeyConditionExpression=Key('UserID').eq(user_id)
-        )
-
-        # Extract items from the response
-        items = response.get('Items', [])
-        if not items:
-            print(f"No conversation history found for User ID: {user_id}")
-            return None
-
-        # Print all retrieved conversations
-        for item in items:
-            print(f"\nTimestamp: {item['Timestamp']}")
-            print(f"User Query: {item['UserQuery']}")
-            print(f"Assistant Response: {item['AssistantResponse']}")
-        return items
-
-    except Exception as e:
-        print(f"Error retrieving from DynamoDB: {e}")
-        return None
 
 def get_embeddings(query):
     """
@@ -237,65 +133,6 @@ def summarize_pinecone_results(results):
     })
     return response.content
 
-def chat_answer(messages, buffer_memory):
-    """Generate chatbot response."""
-    try:
-
-
-        query = messages[0]["content"]
-
-        if understand_chat_sentiment(messages):
-            base_dir = os.path.dirname(__file__)
-            file_path = os.path.join(base_dir, "prompts2.txt")
-
-        # Read the prompt
-            with open(file_path, "r", encoding="utf-8") as f:
-                prompt = f.read()
-            formatted_query = call_openai_format(messages)
-
-            search_results = pinecone_search(formatted_query)
-            if not search_results:
-                return {"bot_reply": "No relevant search results found.", "summarize_bot_reply": ""}
-
-            # Update last message with prompt and search results
-            messages[-1]["content"] += f" {prompt} Use this info: {search_results}."
-
-            # OpenAI Chat Completion
-            response = openai.chat.completions.create(
-                model="gpt-4o-mini",
-                messages=messages,
-                temperature=0
-            )
-
-            bot_reply = response.choices[0].message.content.strip()
-            summarize_bot_reply = summarize_pinecone_results(bot_reply)
-            
-            return {"bot_reply": bot_reply, "summarize_bot_reply": summarize_bot_reply}
-
-        else:
-            base_dir = os.path.dirname(__file__)
-            file_path = os.path.join(base_dir, "prompts.txt")
-
-        # Read the prompt
-            with open(file_path, "r", encoding="utf-8") as f:
-                prompt = f.read()
-
-            messages[-1]["content"] += f" {prompt}"
-
-            response = openai.chat.completions.create(
-                model="gpt-4o-mini",
-                messages=messages,
-                temperature=0
-            )
-
-            bot_reply = response.choices[0].message.content.strip()
-
-            return {"bot_reply": bot_reply, "summarize_bot_reply": ""}
-
-    except Exception as e:
-        logger.exception("Error in chat_answer")
-        return {"bot_reply": "An error occurred while generating the response.", "summarize_bot_reply": ""}
-
 def checkIsHistoryConsideredToBeSentForSentimentAnalysis(chat_history):
     prompt = ChatPromptTemplate.from_template("""
     Analyze the following chat history to determine if sufficient information has been gathered like location , price , amenities , or user requirements to send chat history for sentiment analysis. 
@@ -341,44 +178,6 @@ def understand_chat_sentiment(chat_history):
 
 
 
-def sufficient_information_gathered(chat_history):
-    """
-    Analyzes the chat history to determine if sufficient information has been gathered
-    to search for properties. Returns True if conditions are met; otherwise, returns False.
-    """
-    print("chat history",chat_history)
-    # Convert chat history to lowercase for case-insensitive comparison
-    user_chats = [chat["content"].lower() for chat in chat_history if chat["role"] == "user"]
-    assistant_chats = [chat["content"].lower() for chat in chat_history if chat["role"] == "assistant"]
-    
-    # Flatten all chat history content into a single string for quick search
-    chat_history_lower = " ".join(user_chats + assistant_chats)
-
-    # Check if the user has explicitly requested to see properties
-    user_requested_properties = any(
-        phrase in chat for chat in user_chats for phrase in ["show me property", "list properties", "property options","show me properties now"]
-    )
-
-    # Check if the assistant has asked about showing properties
-    assistant_asked_phrases = [
-        "can i show you property now",
-        "can i show u property now",
-        "can i show you properties now",
-        "can i show u properties now"
-    ]
-    assistant_asked = any(phrase in chat_history_lower for phrase in assistant_asked_phrases)
-
-    # Check if the user has responded affirmatively
-    affirmative_responses = ["yes", "yeah", "sure", "please", "okay", "ok"]
-    user_responded_affirmatively = any(phrase in chat_history_lower for phrase in affirmative_responses)
-
-    # List of possible locations (extendable)
-    locations = ["gurgaon", "delhi", "mumbai", "bangalore", "noida","Dwarka Expressway"]
-    location_mentioned = any(location in chat_history_lower for location in locations)
-
-    # Determine if sufficient information has been gathered
-    return location_mentioned and (user_requested_properties or (assistant_asked and user_responded_affirmatively))
-
 def call_openai_format(messages, model="gpt-4", max_tokens=100, temperature=0):
     """
     Calls OpenAI's chat completions API to process the conversation.
@@ -413,156 +212,6 @@ The task is to read whole chat history and based on the user's preferences, retr
     except Exception as e:
         logger.error("Unexpected error: %s", e, exc_info=True)
         return "An unexpected error occurred while calling OpenAI."
-
-
-
-
-def perform_sentiment_analysis(conversation_text):
-    try:
-        prompt = f"""Analyze this real estate conversation as a lead generation expert. Output in this format:
-        1. Location Sentiment: [High/Medium/Low: 1-10]
-        2. Price Sentiment: [High/Medium/Low: 1-10]
-        3. Amenity Sentiment: [High/Medium/Low: 1-10]
-        4. Builder Sentiment: [High/Medium/Low: 1-10]
-        5. Emotional Triggers
-        6. Unified Lead Title
-        7. Recommended Actions
-
-        Conversation: {conversation_text}"""
-
-        response = openai.chat.completions.create(
-            model="gpt-3.5-turbo",
-            messages=[
-                {"role": "system", "content": "You are a real estate lead qualification expert."},
-                {"role": "user", "content": prompt}
-            ],
-            temperature=0.3
-        )
-        return response.choices[0].message.content.strip()
-    except Exception as e:
-        logger.error(f"Sentiment analysis error: {str(e)}")
-        return None
-
-
-
-# Setup logger
-logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger(__name__)
-
-def save_sentiment_to_s3(user_id, sentiment_data):
-    try:
-        # Generate timestamp and filename
-        timestamp = datetime.utcnow().strftime('%Y-%m-%d_%H-%M-%S')
-        cleaned_string = user_id.replace('|', '')
-        # Create user folder structure
-        user_folder = f"users/{cleaned_string}/sentiment/"
-        s3_key = f"{user_folder}sentiment_{cleaned_string}_{timestamp}.csv"
-        
-        # Parse sentiment_data if it's text
-        if isinstance(sentiment_data, str):
-            parsed_sentiment = parse_sentiment(sentiment_data)
-            
-            # Extract values from parsed_sentiment in the correct order
-            sentiment_values = [
-                parsed_sentiment['Location Sentiment'],
-                parsed_sentiment['Price Sentiment'],
-                parsed_sentiment['Amenity Sentiment'],
-                parsed_sentiment['Builder Sentiment'],
-                parsed_sentiment['Emotional Triggers'],
-                parsed_sentiment['Unified Lead Title'],
-                parsed_sentiment['Recommended Actions']
-            ]
-        elif isinstance(sentiment_data, list):
-            # If already a list, use as is
-            sentiment_values = sentiment_data
-        else:
-            # If it's another format (like dictionary), convert appropriately
-            sentiment_values = list(parsed_sentiment.values())
-        
-        # Set up CSV headers
-        headers = [
-            "Location Sentiment",
-            "Price Sentiment",
-            "Amenity Sentiment",
-            "Builder Sentiment",
-            "Emotional Triggers",
-            "Unified Lead Title",
-            "Recommended Actions"
-        ]
-        
-        logger.info(f"Saving sentiment data to S3 for user_id {user_id} in folder {user_folder}")
-        
-        # Create CSV in memory
-        csv_buffer = io.StringIO()
-        writer = csv.writer(csv_buffer)
-        writer.writerow(headers)  # Write header row
-        writer.writerow(sentiment_values)  # Write data row
-        
-        # Upload to S3 with metadata
-        s3_client.put_object(
-            Bucket=S3_BUCKET_NAME,
-            Key=s3_key,
-            Body=csv_buffer.getvalue(),
-            ContentType='text/csv',
-            Metadata={
-                'user_id': user_id,
-                'timestamp': timestamp,
-                'type': 'sentiment-analysis'
-            }
-        )
-        
-        logger.info(f"Sentiment file saved successfully: {s3_key}")
-        return s3_key
-
-    except Exception as e:
-        logger.error(f"S3 upload error: {str(e)}")
-        return None
-
-
-
-def parse_sentiment(sentiment_text):
-    sentiment_data = {
-        'Location Sentiment': '',
-        'Price Sentiment': '',
-        'Amenity Sentiment': '',
-        'Builder Sentiment': '',
-        'Emotional Triggers': '',
-        'Unified Lead Title': '',
-        'Recommended Actions': ''
-    }
-    
-    current_section = None
-    section_content = []
-    
-    for line in sentiment_text.split('\n'):
-        line = line.strip()
-        if not line:
-            continue
-        
-        # Remove numbering (like "1." or "2.") before checking for key matches
-        line = re.sub(r'^\d+\.\s*', '', line)
-
-        # Match line with sentiment keys (case insensitive)
-        for key in sentiment_data.keys():
-            if re.match(fr"^{re.escape(key)}:", line, re.IGNORECASE):
-                if current_section:
-                    sentiment_data[current_section] = ' '.join(section_content)
-                
-                # Extract text after ":" safely
-                parts = line.split(":", 1)
-                sentiment_text = parts[1].strip() if len(parts) > 1 else ""
-
-                current_section = key
-                section_content = [sentiment_text]
-                break
-        else:
-            if current_section:
-                section_content.append(line)
-    
-    if current_section:
-        sentiment_data[current_section] = ' '.join(section_content)
-    
-    return sentiment_data
 
 
 

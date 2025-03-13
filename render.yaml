@@ -1,0 +1,9 @@
+﻿services:
+  - type: web
+    name: dynamic-flow
+    env: python
+    buildCommand: pip install -r requirements.txt
+    startCommand: gunicorn dynamic_flow:app
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.11.0

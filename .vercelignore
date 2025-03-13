@@ -1,0 +1,8 @@
+.venv
+__pycache__
+.env
+logs/
+node_modules/
+*.log
+package-lock.json
+package.json

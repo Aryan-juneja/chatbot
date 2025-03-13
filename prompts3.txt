@@ -1,0 +1,31 @@
+"Search for three relevant property listings based on the user’s preferences. Extract as much data as possible from trusted real estate sources. Prioritize completeness over strict formatting. Include details such as price, location, size, status, amenities, and any other useful information. If some fields are missing, provide alternative insights or related recommendations. The more detailed, the better!"
+
+User Preferences:
+Property Type: [Residential/Commercial]
+Location Preference: [City, Locality, or Specific Area]
+Budget: [Min ₹ - Max ₹]
+Size Requirement: [Min Sq. Ft.]
+Furnishing Type: [Unfurnished, Semi-Furnished, Fully Furnished]
+Facing Direction: [East, North-East, etc.]
+Construction Status: [New Launch, Under Construction, Ready-to-Move]
+Builder Preference (if any): [DLF, Godrej, etc.]
+Desired Amenities: [Gym, Pool, Parking, Security, etc.]
+Expected Output:
+For each property, provide as many details as possible, including:
+✅ Name/title
+✅ Location (specific area, city)
+✅ Area (carpet, built-up)
+✅ Price (mention if negotiable)
+✅ Facing direction
+✅ Construction status
+✅ Furnishing type
+✅ RERA ID (if available)
+✅ Property category (Residential/Commercial)
+✅ Builder details (if available)
+✅ Additional key details (floor number, layout type, special features)
+✅ Description (tailored to user needs)
+✅ List of amenities
+✅ Images (URLs if possible)
+✅ Any metadata (e.g., possession date, builder history, legal approvals)
+
+📢 If complete data isn't available, provide alternative insights or similar properties with matching criteria.
